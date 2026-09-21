@@ -143,7 +143,11 @@ def verify(state: State) -> dict:
     log_lines = []
 
     for d in state["drafted"]:
-        result = verify_module.verify_one(d)
+        try:
+            result = verify_module.verify_one(d)
+        except Exception as exc:
+            log_lines.append(f"[verify] {d['company']} 검수 자체 실패: {exc} → 스킵")
+            continue
 
         if result["verdict"] == "pass":
             verified.append(d)
@@ -189,10 +193,11 @@ def build():
     return graph.compile()
 
 
-if __name__ == "__main__":
-    app = build()
-    result = app.invoke(
-        {"hours": 24, "collected": [], "picked": [], "drafted": [], "verified": [], "log": []}
-    )
-    for line in result["log"]:
-        print(line)
+INITIAL_STATE = {
+    "hours": 24,
+    "collected": [],
+    "picked": [],
+    "drafted": [],
+    "verified": [],
+    "log": [],
+}
