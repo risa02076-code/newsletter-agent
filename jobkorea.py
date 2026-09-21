@@ -16,6 +16,12 @@ HR_DUTY_CODES = ["1000201", "1000202", "1000203", "1000204", "1000205", "1000206
 
 ITEM_SELECTOR = "li.itemBg, li.itemBgTop, li.itemBgTopHeadline"
 
+# 채용구분(career): 1=신입 (잡코리아 검색폼에서 확인)
+CAREER_ENTRY_LEVEL = "1"
+
+# 기업형태(cotype): 1=대기업, 4=중견기업, 15=중소기업 — 우선순위 순서 그대로
+COMPANY_TIERS = [("대기업", "1"), ("중견기업", "4"), ("중소기업", "15")]
+
 # G1(본문) 관문 기준선. 실측 결과 정상 응답이면 대부분 넘지만,
 # 항목이 부실한 공고(우대조건·복리후생 미기재 등)는 이 밑으로 떨어진다.
 BODY_LENGTH_BASELINE = 600
@@ -73,6 +79,59 @@ def fetch_hr_postings(hours: int = 24, pages: int = 2) -> list[dict]:
                     "deadline": deadline_el.get_text(strip=True) if deadline_el else None,
                 }
             )
+
+    return postings
+
+
+def fetch_entry_level_by_tier(cotype: str, count: int = 10) -> list[dict]:
+    """신입(career=1) + 특정 기업형태(cotype)로 좁힌 결과만 가져온다.
+
+    select 노드가 대기업→중견→중소 순서로 이 함수를 반복 호출해 우선순위
+    대로 채운다. 사이트가 이미 이 두 조건을 정확히 걸러주므로(사실 확인),
+    LLM 판단 없이 파라미터 조합만으로 끝난다.
+    """
+    params = {
+        "menucode": "duty",
+        "dutyCtgr": "10028",
+        "duty": ",".join(HR_DUTY_CODES),
+        "order": "2",
+        "career": CAREER_ENTRY_LEVEL,
+        "cotype": cotype,
+    }
+    resp = _session.get(LIST_URL, params=params, timeout=15)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+    time.sleep(1.2)
+
+    postings = []
+    seen_ids = set()
+    for item in soup.select(ITEM_SELECTOR):
+        if len(postings) >= count:
+            break
+        job_id = item.get("data-info", "").split("|")[0]
+        if not job_id or job_id in seen_ids:
+            continue
+
+        company_el = item.select_one("div.company span.name")
+        link_el = item.select_one("div.description a")
+        deadline_el = item.select_one("span.deadLine")
+        if not (company_el and link_el):
+            continue
+
+        title = link_el.get_text(strip=True)
+        if deadline_el:
+            title = title.replace(deadline_el.get_text(strip=True), "").strip()
+
+        seen_ids.add(job_id)
+        postings.append(
+            {
+                "id": job_id,
+                "title": title,
+                "company": company_el.get_text(strip=True),
+                "url": "https://www.jobkorea.co.kr" + link_el["href"].split("?")[0],
+                "deadline": deadline_el.get_text(strip=True) if deadline_el else None,
+            }
+        )
 
     return postings
 

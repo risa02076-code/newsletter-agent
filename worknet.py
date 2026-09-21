@@ -71,3 +71,52 @@ def fetch_hr_postings(pages: int = 1, display: int = 100) -> list[dict]:
             )
 
     return postings
+
+
+def fetch_entry_level_by_tier(tier_code: str, count: int = 10) -> list[dict]:
+    """신입(empWantedCareerCd=30) + 특정 기업구분(coClcd)으로 좁힌 결과만 가져온다.
+
+    select 노드가 잡코리아 쪽과 같은 우선순위(대기업→공기업→공공기관→
+    중견기업)로 이 함수를 반복 호출한다. 두 조건 다 API 자체가 받는
+    입력 파라미터라 LLM 판단 없이 그대로 넘기면 된다.
+    """
+    auth_key = os.environ["WORKNET_AUTH_KEY"]
+    params = {
+        "authKey": auth_key,
+        "callTp": "L",
+        "returnType": "XML",
+        "startPage": 1,
+        "display": count,
+        "jobsCd": "|".join(HR_JOB_CODES),
+        "empWantedCareerCd": CAREER_ENTRY_LEVEL,
+        "coClcd": tier_code,
+    }
+    resp = requests.get(BASE_URL, params=params, timeout=15)
+    resp.raise_for_status()
+    root = ET.fromstring(resp.content)
+
+    postings = []
+    for item in root.findall(".//dhsOpenEmpInfo"):
+
+        def text(tag):
+            el = item.find(tag)
+            return el.text.strip() if el is not None and el.text else None
+
+        job_id = text("empSeqno")
+        if not job_id:
+            continue
+
+        postings.append(
+            {
+                "id": job_id,
+                "title": text("empWantedTitle"),
+                "company": text("empBusiNm"),
+                "company_tier": text("coClcdNm"),
+                "start_date": text("empWantedStdt"),
+                "end_date": text("empWantedEndt"),
+                "employment_type": text("empWantedTypeNm"),
+                "url": text("empWantedHomepgDetail"),
+            }
+        )
+
+    return postings
