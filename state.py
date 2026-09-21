@@ -7,4 +7,5 @@ class State(TypedDict):
     collected: list[dict]
     picked: list[dict]
     drafted: Annotated[list[dict], operator.add]
+    verified: list[dict]
     log: Annotated[list[str], operator.add]

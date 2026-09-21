@@ -3,8 +3,11 @@ from langgraph.graph import END, START, StateGraph
 import alio
 import draft as draft_module
 import jobkorea
+import verify as verify_module
 import worknet
 from state import State
+
+DRAFT_ONLY_KEYS = {"summary", "insight", "material_length", "_material"}
 
 NODE_NAMES = ["collect", "select", "draft", "verify", "publish"]
 
@@ -133,11 +136,41 @@ def draft(state: State) -> dict:
 
 
 def verify(state: State) -> dict:
-    return {"log": [f"[verify] {len(state['drafted'])}건 검수 (스텁)"]}
+    """규칙 체크(무료) 먼저, 걸린 것만 LLM으로 재확인. 그래도 실패하면
+    원본 재료로 한 번 재생성해보고, 그마저 실패하면 스킵한다."""
+    verified = []
+    log_lines = []
+
+    for d in state["drafted"]:
+        result = verify_module.verify_one(d)
+
+        if result["verdict"] == "pass":
+            verified.append(d)
+            log_lines.append(f"[verify] {d['company']} 통과 ({result['method']})")
+            continue
+
+        log_lines.append(f"[verify] {d['company']} 1차 탈락 ({result['method']}, {result['detail']}) → 재생성 시도")
+
+        original_posting = {k: v for k, v in d.items() if k not in DRAFT_ONLY_KEYS}
+        try:
+            regenerated = draft_module.draft_one(original_posting)
+            retry = verify_module.verify_one(regenerated)
+        except Exception as exc:
+            log_lines.append(f"[verify] {d['company']} 재생성 실패: {exc} → 스킵")
+            continue
+
+        if retry["verdict"] == "pass":
+            verified.append(regenerated)
+            log_lines.append(f"[verify] {d['company']} 재생성 후 통과")
+        else:
+            log_lines.append(f"[verify] {d['company']} 재생성 후에도 탈락 ({retry['detail']}) → 스킵")
+
+    log_lines.append(f"[verify] {len(state['drafted'])}건 중 {len(verified)}건 통과")
+    return {"verified": verified, "log": log_lines}
 
 
 def publish(state: State) -> dict:
-    return {"log": ["[publish] 0건 발행 (스텁)"]}
+    return {"log": [f"[publish] {len(state['verified'])}건 발행 (스텁)"]}
 
 
 def build():
@@ -153,6 +186,8 @@ def build():
 
 if __name__ == "__main__":
     app = build()
-    result = app.invoke({"hours": 24, "collected": [], "picked": [], "drafted": [], "log": []})
+    result = app.invoke(
+        {"hours": 24, "collected": [], "picked": [], "drafted": [], "verified": [], "log": []}
+    )
     for line in result["log"]:
         print(line)

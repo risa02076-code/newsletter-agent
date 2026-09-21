@@ -81,6 +81,7 @@ def draft_one(posting: dict) -> dict:
         "summary": parsed.get("summary", ""),
         "insight": parsed.get("insight", ""),
         "material_length": len(material),
+        "_material": material,  # verify 노드가 같은 재료로 재대조할 때 씀
     }
 
 
