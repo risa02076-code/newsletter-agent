@@ -3,6 +3,7 @@ from langgraph.graph import END, START, StateGraph
 import alio
 import draft as draft_module
 import jobkorea
+import publish as publish_module
 import verify as verify_module
 import worknet
 from state import State
@@ -170,7 +171,11 @@ def verify(state: State) -> dict:
 
 
 def publish(state: State) -> dict:
-    return {"log": [f"[publish] {len(state['verified'])}건 발행 (스텁)"]}
+    try:
+        sent = publish_module.publish_to_discord(state["verified"])
+    except Exception as exc:
+        return {"log": [f"[publish] 실패: {exc}"]}
+    return {"log": [f"[publish] {sent}건 디스코드 발행 완료"]}
 
 
 def build():
