@@ -1,6 +1,7 @@
 from langgraph.graph import END, START, StateGraph
 
 import alio
+import draft as draft_module
 import jobkorea
 import worknet
 from state import State
@@ -117,7 +118,18 @@ def select(state: State) -> dict:
 
 
 def draft(state: State) -> dict:
-    return {"drafted": [], "log": [f"[draft] {len(state['picked'])}건 요약 (스텁)"]}
+    drafted = []
+    log_lines = []
+    for p in state["picked"]:
+        try:
+            d = draft_module.draft_one(p)
+        except Exception as exc:
+            log_lines.append(f"[draft] {p.get('company')} 실패: {exc}")
+            continue
+        drafted.append(d)
+        log_lines.append(f"[draft] {d['company']} 요약 완료 (재료 {d['material_length']}자)")
+    log_lines.append(f"[draft] {len(state['picked'])}건 중 {len(drafted)}건 요약")
+    return {"drafted": drafted, "log": log_lines}
 
 
 def verify(state: State) -> dict:

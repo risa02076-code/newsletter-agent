@@ -1,0 +1,23 @@
+audience:
+  persona: "대기업·공공기관 인사(HR) 실무자 및 인사 직무 취업준비생"
+  goal: "경쟁사·업계의 인사(HR) 부문 신입 채용 동향을 매일 아침 빠르게 파악한다"
+
+selection:
+  job_function: "인사·노무·HRD 관련 직무"
+  career_level: "신입"
+  company_tier_priority:
+    - 대기업
+    - 공기업
+    - 공공기관
+    - 중견기업
+    - 중소기업
+  target_count: 5
+
+exclusion:
+  - "경력직 전용 공고 (career != 신입)"
+  - "인사와 무관한 직무 (영업/생산/개발 등, duty/jobsCd/NCS 코드로 제외됨)"
+  - "본문(모집요강) 확인이 안 되어 재료가 부족한 공고"
+
+insight_angle: >
+  이 채용 공고가 인사 실무자 관점에서 어떤 조직 변화, 채용 트렌드,
+  경쟁사 동향을 시사하는지를 짚는다. 단순히 공고 내용을 반복하지 않는다.

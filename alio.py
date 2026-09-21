@@ -90,3 +90,21 @@ def fetch_hr_postings(pages: int = 1, page_size: int = 50, days: int = 60) -> li
             )
 
     return postings
+
+
+def fetch_body(job_id: str) -> str:
+    """상세페이지에서 표준직무·학력·근무조건 등 요강 구간 텍스트를 뽑는다."""
+    resp = requests.get(
+        f"{BASE_URL}/recruitview.do",
+        params={"idx": job_id},
+        headers={"User-Agent": USER_AGENT},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    text = BeautifulSoup(resp.text, "html.parser").get_text(" ", strip=True)
+
+    start = text.find("표준직무")
+    if start == -1:
+        return text
+    end = text.find("에서 진행중인", start)
+    return text[start:end] if end != -1 else text[start:]
